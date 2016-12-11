@@ -1,6 +1,8 @@
 # Práctica 1.
-# Variables conjuntamente Gaussianas.  
-# Procesos Aleatorios.
+## Variables conjuntamente Gaussianas.  
+## Procesos Aleatorios.
+
+####Teresa de Jesús Algarra Ulierte, 2ºA2.
 
 ## 1. Caracterización de variables conjuntamente Gaussianas.
 
@@ -199,7 +201,7 @@ Tenemos dos figuras o imágenes: la primera, que es la media, y la segunda, que 
 
 Seguidamente, representamos la **media** con el eje X entre 1 y 128, y el eje Y entre -2 y 2. El resultado es:
 
-![](proceso_vector_medias.png)
+![El vector media del proceso.](proceso_vector_medias.png)
 
 La media no es **exactamente** constante, pero decir que vale 0 en total es una aproximación perfectamente válida para ser datos tomados de un proceso real.
 
@@ -210,29 +212,144 @@ Al principio tiene un transitorio típico de los procesos reales, pero luego se 
 
 Por otro lado, la diagonal justo por encima y la diagonal justo por debajo de la principal se solapan porque valen lo mismo. Esto nos indica que tocas las diagonales "secundarias" tienen menor amplitud que la diagonal principal y que, además, se comportan de forma simétrica respecto de la principal. Esto quiere decir que, como hemos visto en clase, la correlación es máxima cuando $\tau=0$, que es la diagonal principal sin desplazamiento. De ahí que se calcule en Matlab como *diag(matriz, 0)*, porque no hay desplazamiento, y en el resto de diagonales secundarias sí se tiene que poner un valor como argumento complementario de la función.
 
-![](proceso_matriz_covarianzas.png)
+![Varias diagonales de la matriz de covarianzas.](proceso_matriz_covarianzas.png)
 
 Siguiendo el guión de prácticas encontramos un fichero *signal1ER*, en el cual hay una única realización de un proceso aleatorio pero muestreado en 128000 instantes de tiempo diferentes. Pasemos a trabajar con él.
 
-f1=fopen('signal1ERG','r');
-xerg=fread(f1,[128000,1],'single');
+Tenemos que empezar por abrirlo:
 
-%Calculamos m, un vector de 128000 filas con las 128 esperanzas:
-merg=mean(xerg)
+    f1=fopen('signal1ERG','r');
+    xerg=fread(f1,[128000,1],'single');
 
-mmxp=mean(mxp)
+Tenemos que calcular la media. Ahora, en vez de una media estadística, calculamos la media temporal. Para ello, usamos la función de Matlab *mean*. Nos saldrá un número:
 
-%Calculamos Rt:
-Rt=zeros(256,1);
-    for k=1:256;
+    merg=mean(xerg);
+
+El resultado es 0.042852.
+
+Para poder saber si es ergódico o no, hacemos también la media del vector columna de medias el proceso que hemos calculado antes.
+
+    mmxp=mean(mxp);
+
+Sale 0.025143.
+
+Calculando ambos valores, vemos que la diferencia es mínima, es decir, menos de 0.02. Por lo tanto, podemos considerar que el promedio temporal y el estadístico coinciden en la media.
+
+Pasamos a calcular su vector columna de covarianza, el cuál no calculamos entera porque sería de unos tamaños desproporcionados y no nos serviría para nada. Por eso, calculamos sólo 256 filas:
+
+    Rt=zeros(256,1);
+      for k=1:256;
         for n=1:(128000-k);
-            Rt(k,1)=Rt(k,1)+xerg(n,1)*xerg(n+k-1,1);
+          Rt(k,1)=Rt(k,1)+xerg(n,1)* xerg(n+k-1,1);
         end
+      end
+    Rt=Rt/(128000-k);
+
+Sale una matriz muy larga, de la cual pondremos solo:
+
+    5.270220
+    4.741569
+       ...
+    0.053744
+    0.039329
+
+La matriz completa se encuentra en GitHub, y es accesible haciendo click  [**aquí**](https://github.com/teresalgarra/practicas_tc_16/blob/master/proceso_matriz_ergodica.txt), o copiando el enlace *https://github.com/teresalgarra/practicas_tc_16/blob/master/proceso_matriz_ergodica.txt* en la barra del navegador.
+
+
+Para poder comparar las medias, hacemos la media de este vector, y el resultado es un número.
+
+    mRt=mean(Rt)  
+
+El resultado es 0.20154.
+
+Tenemos que compararlo con la media de la matriz de covarianzas anterior. Le hacemos la media:
+
+    mRt=mean(Rt);
+
+Sale 0.69983.
+
+De nuevo, la diferencia no llega a 0.5, y dados los registros en los que nos movemos y que es un proceso real, podemos considerar que el promedio estadístico y el temporal de la autocorrelación es el mismo.
+
+Por lo tanto, tomamos el proceso como **sí ergódico**.
+
+Por último, calculamos la **densidad de potencia espectral** $S_{x}(f)$. Para ello, usamos la matriz *Rt* calculada
+
+    psd=fft(Rt,256);
+
+La función de Matlab *fft* nos da el espectro de frecuencia en tiempo discreto.
+La representamos:
+
+    psd=psd(1:128);
+    frec=0:(4000/127):4000;
+    figure(4)
+    plot(frec,abs(psd));
+
+Tomamos el valor absoluto de la primera mitad de los valores para tomar solo los positivos. Si hemos muestreado a *8KHz*, por el Teorema de Nyquist, sabemos que el ancho de banda es la mitad, es decir, hasta *4KHz*. Estos son los valores que se tomarán, distanciados $\displaystyle\frac{4000}{128-1} Hz$.
+
+El resultado gráfico es:
+
+![Densidad espectral calculada.](proceso_densidad_espectral.png)
+
+Toma una forma similar a una exponencial negativa, pero empezando entorno a 50, con un pequeño transitorio al principio con dos picos, y estabilizándose un poco más a partir de 3000.
+
+
+##3. Filtrado de Procesos Aleatorios
+
+Por último, tenemos un fichero *signalENTRADA* con una sola realización muestreada en 128000 instantes de tiempo diferentes de la entrada del otro proceso usado antes que era un filtro lineal con todo polos y cociente $a_{1}=-0.9$.
+
+Comprobemos que la $S_{x}(f)$ obtenida también se podía haber calculado con la relación que se establece entre la respuesta en frecuencia del filtro y la densidad de potencia espectral del proceso aleatorio de entrada.
+
+Para esto, tenemos que repetir parte de lo hecho en el punto anterior:
+
+    f1=fopen('signalENTRADA','r');
+    x1=fread(f1,[128000,1],'single');
+    fclose(f1)
+
+
+    Rt1=zeros(256,1);
+    for k=1:256                
+      for n=1:(128000-k)
+         Rt1(k,1)=Rt1(k,1)+(x1(n,1)* x1(n+k-1,1));
+      end
+    Rt1(k,1)=Rt1(k,1)/(128000-k);
     end
-Rt=Rt/(128000-k);
 
-mRxp=mean(mean(Rxp))
-mRt=mean(Rt)
+    psd1=fft(Rt1,256);
+    psd1=psd1(1:128);
 
+Todo esto es lo que ya habíamos hecho antes.
 
-##Filtrado de Procesos Aleatorios
+Para calcularlo de la otra manera, usamos la respuesta impulso del filtro. Usamos la función de Matlab *impz* con los argumentos dados en el enunciado, es decir, $a_{1} = -0.9$. Ahora tenemos que pasar $S_{x}$ por e filtro. La relación que hemos de usar es:
+
+$S_{y}(f)= |{H(f)}|^2S_{x}(f)$
+
+Empezamos a calcular $h(t)$:
+
+    h=impz(1,[1,-0.9],128);
+
+$H(\omega)$ es la transformada de Fourier de $h(t)$, ya que lo único que las diferencia es que la primera está en el dominio de la frecuencia, mientras que la segunda está en el dominio del tiempo. Por lo tanto, veamos $H(\omega)$:
+
+    H=fft(h,256);
+    H=H(1:128);
+
+Consideramos *H* sólo hasta la mitad, como antes. Pasamos a aplicar la fórmula:
+
+    psd2=(abs(H).^2).* psd1;
+
+Al trabajar poniendo puntos antes de los operadores evitamos que el compilador nos saque errores del tipo matriciales, ya que Matlab está originalmente hecho para trabajar con matrices.
+
+Veamos gráficamente cómo ha funcionado:
+
+    figure(1);
+    plot(h);
+
+    figure(2);
+    plot(frec,abs(psd));
+    hold on;
+    plot(frec,abs(psd2(1:128)),'r');
+
+![En azul, la comparada al principio; en rojo la comprobación.](comparacion_spd.png)
+
+No son **exactamente** iguales, pero, de nuevo, es porque no estamos trabajando con un proceso teórico creado en un ordenador, sino con un proceso real que ocurre fuera de los programas que utilizamos para analizarlo, con lo cual podemos llegar a la conclusión de que la aproximación que tienen es lo bastante acertada como para afirmar que **hemos comprobado la relación** existente entre la respuesta al impulso de un filtro y la densidad de potencia espectral de la entrada.
+
+En resumen, en esta práctica hemos pasado de empezar haciendo simples medias para variables aleatorias a verificar que se cumplen cualidades de los filtros y de los procesos aleatorios experimentalmente, pasando por reconocer un proceso estacionario en sentido amplio y un proceso ergódico. Hemos trabajado con Matlab y hemos utilizado muchas funciones escritas específicamente para este tipo de análisis, así como las múltiples maneras de representar las gráficas y los resultados; con lo que se puede considerar que ha complementado de manera muy ilustrativa todos los conceptos vistos en las clases de teoría de una forma experimental.
